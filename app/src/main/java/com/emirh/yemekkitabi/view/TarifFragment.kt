@@ -1,9 +1,8 @@
-package com.emirh.yemekkitabi
+package com.emirh.yemekkitabi.view
 
 import android.Manifest
 import android.content.Intent
 import android.content.pm.PackageManager
-import android.content.pm.PathPermission
 import android.graphics.Bitmap
 import android.graphics.ImageDecoder
 import android.net.Uri
@@ -15,17 +14,21 @@ import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.widget.Toast
-import androidx.activity.result.ActivityResultCallback
 import androidx.activity.result.ActivityResultLauncher
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
-import androidx.core.content.PackageManagerCompat
+import androidx.room.Room
+import com.emirh.yemekkitabi.TarifFragmentArgs
 import com.emirh.yemekkitabi.databinding.FragmentTarifBinding
+import com.emirh.yemekkitabi.model.Tarif
+import com.emirh.yemekkitabi.roomdb.TarifDAO
+import com.emirh.yemekkitabi.roomdb.TarifDatabase
 import com.google.android.material.snackbar.Snackbar
+import java.io.ByteArrayOutputStream
 import java.io.IOException
-import kotlin.math.sign
+import kotlin.math.max
 
 // view bindingleri yapmayı unutmuyoruz ve bir tık fragmentlarda farklı oluyor.
 class TarifFragment : Fragment() {
@@ -37,9 +40,17 @@ class TarifFragment : Fragment() {
     private var secilenGorsel : Uri? = null // urllerde bir uri dır kaynagımızın nerede oldugunu belirtir orn:data/data/media/image.jpg gibi
     private var secilenBitmap : Bitmap?= null //
 
+    // asagıda database build etmeyi gosteriyor
+    private lateinit var  db: TarifDatabase
+    private lateinit var  tarifDAO: TarifDAO
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         registerLauncher()
+
+        // database build ediliyor.
+        db = Room.databaseBuilder(requireContext(), TarifDatabase::class.java,"Tarifler").build()
+        tarifDAO = db.tarifDao()
 
     }
 
@@ -80,15 +91,32 @@ class TarifFragment : Fragment() {
 
 
     }
-
+    // bitmap gorsel kucultme dersi
     fun kaydet(view: View) {
+        val isim = binding.isimText.text.toString()
+        val malzeme = binding.MalzemeText.toString()
+        // asagıdaki kod yuklenen gorselleri dusurmeyecek kadar normal boyutlara getiriyor.
+        if(secilenBitmap!=null){
+            val kucukBitmap = kucukBitMapOlustur(secilenBitmap!!,300)
+            val outputStream = ByteArrayOutputStream()
+            kucukBitmap.compress(Bitmap.CompressFormat.PNG,50,outputStream)// cıktıyı nasıl alacagız onu belirliyor
+            val byteDizisi = outputStream.toByteArray()
+
+            val tarif = Tarif(isim, malzeme, byteDizisi)
+            tarifDAO.insert(tarif)
+
+            // data base kaydetmeye calısıcaz.
+
+
+
+        }
 
     }
 
     fun sil(view: View) {
 
     }
-    // GERNEL OLRAK BU ASAGIDAKİ KODLARLA İZİNLERLE ALAKALI HERSEYİ HALLETMİŞ OLDUK
+    // GENEL OLRAK BU ASAGIDAKİ KODLARLA İZİNLERLE ALAKALI HERSEYİ HALLETMİŞ OLDUK
     fun gorselSec(view: View) {
 
         if (Build.VERSION.SDK_INT>= Build.VERSION_CODES.TIRAMISU){
@@ -212,6 +240,28 @@ class TarifFragment : Fragment() {
 
             }
         }
+    }
+    private fun kucukBitMapOlustur(kullanicininSectigiBitmap: Bitmap,maximumBoyut: Int): Bitmap{
+        var widht = kullanicininSectigiBitmap.width
+        var height = kullanicininSectigiBitmap.height
+        // neden double sectik cunku kusuratlarında hesaplanmasını istiyoruz int secseydik onu atacak kalanı
+        val bitmapOrani : Double = widht.toDouble() / height.toDouble() // 1.5 sa 1.5 oranı vermke icin.
+
+        if(bitmapOrani>1 ){
+            //gorsel yataysa
+            widht= maximumBoyut
+            val kisaltilmisYukseklik = widht/bitmapOrani
+            height = kisaltilmisYukseklik.toInt()
+
+        }else{
+            //görsel Dikey
+            height = maximumBoyut
+            val kisaltimisGenislik = height * bitmapOrani
+            widht = kisaltimisGenislik.toInt()
+        }
+
+
+        return Bitmap.createScaledBitmap(kullanicininSectigiBitmap,  100,  100, true)
     }
 
 
