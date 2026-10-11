@@ -20,7 +20,6 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import androidx.room.Room
-import com.emirh.yemekkitabi.TarifFragmentArgs
 import com.emirh.yemekkitabi.databinding.FragmentTarifBinding
 import com.emirh.yemekkitabi.model.Tarif
 import com.emirh.yemekkitabi.roomdb.TarifDAO
@@ -28,7 +27,6 @@ import com.emirh.yemekkitabi.roomdb.TarifDatabase
 import com.google.android.material.snackbar.Snackbar
 import java.io.ByteArrayOutputStream
 import java.io.IOException
-import kotlin.math.max
 
 // view bindingleri yapmayı unutmuyoruz ve bir tık fragmentlarda farklı oluyor.
 class TarifFragment : Fragment() {

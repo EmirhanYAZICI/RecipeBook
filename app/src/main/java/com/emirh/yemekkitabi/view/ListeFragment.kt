@@ -7,7 +7,6 @@ import android.view.View
 import android.view.ViewGroup
 import androidx.navigation.Navigation
 import androidx.room.Room
-import com.emirh.yemekkitabi.ListeFragmentDirections
 import com.emirh.yemekkitabi.databinding.FragmentListe2Binding
 import com.emirh.yemekkitabi.roomdb.TarifDAO
 import com.emirh.yemekkitabi.roomdb.TarifDatabase
