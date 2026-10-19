@@ -4,6 +4,7 @@ import android.Manifest
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.graphics.Bitmap
+import android.graphics.BitmapFactory
 import android.graphics.ImageDecoder
 import android.net.Uri
 import android.os.Build
@@ -19,12 +20,17 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
+import androidx.navigation.Navigation
 import androidx.room.Room
 import com.emirh.yemekkitabi.databinding.FragmentTarifBinding
 import com.emirh.yemekkitabi.model.Tarif
 import com.emirh.yemekkitabi.roomdb.TarifDAO
 import com.emirh.yemekkitabi.roomdb.TarifDatabase
 import com.google.android.material.snackbar.Snackbar
+import io.reactivex.rxjava3.android.schedulers.AndroidSchedulers
+import io.reactivex.rxjava3.disposables.CompositeDisposable
+import io.reactivex.rxjava3.disposables.Disposable
+import io.reactivex.rxjava3.schedulers.Schedulers
 import java.io.ByteArrayOutputStream
 import java.io.IOException
 
@@ -36,7 +42,9 @@ class TarifFragment : Fragment() {
     private lateinit var activityResultLauncher: ActivityResultLauncher<Intent>
 
     private var secilenGorsel : Uri? = null // urllerde bir uri dır kaynagımızın nerede oldugunu belirtir orn:data/data/media/image.jpg gibi
-    private var secilenBitmap : Bitmap?= null //
+    private var secilenBitmap : Bitmap?= null
+    private val  mDisposable = CompositeDisposable() // devamli bir istek yapıldıgında , intentle calısırken 200 300 istek olusabliyor bunlar devamli hafızada birikmesin diye
+                                                     //  bunlari bir disposable kullan at copu icinde biriktirip atabiliyoruzx bunu yapmak zorundayız rx java bize boyle bir yontem vermiş
 
     // asagıda database build etmeyi gosteriyor
     private lateinit var  db: TarifDatabase
@@ -79,20 +87,36 @@ class TarifFragment : Fragment() {
 
             } else {
                 //eski eklenmemiş tarif gosteriliyor.
-                binding.silButton.isEnabled =
-                    true // is enabled bunlar butonlara durumlara gore basılabilir veya basılmayabilir yapıyor.etkinlestirme yani
+                binding.silButton.isEnabled =true // is enabled bunlar butonlara durumlara gore basılabilir veya basılmayabilir yapıyor.etkinlestirme yani
                 binding.kaydetButton.isEnabled = false
+                val id = TarifFragmentArgs.fromBundle(it).id
+
+                mDisposable.add(
+                    tarifDAO.findById(id)
+                        .subscribeOn(Schedulers.io())
+                        .observeOn(AndroidSchedulers.mainThread())
+                        .subscribe(this::handleResponse)
+
+                )
+
             }
-        }
-
-        // protection level: dangerous yazıyorsa manifest kısımlarında kullanıcaya izinleri sormak zorundayız.
-
+        } // protection level: dangerous yazıyorsa manifest kısımlarında kullanıcaya izinleri sormak zorundayız.
 
     }
+
+    private fun handleResponse(tarif: Tarif){
+        binding.isimText.setText(tarif.isim)
+        binding.MalzemeText.setText(tarif.malzeme)
+        val  bitmap = BitmapFactory.decodeByteArray(tarif.gorsel, 0,tarif.gorsel.size)// boylece sıfırları birleri alıyor bitmape cevviriyor.
+        binding.imageView.setImageBitmap(bitmap)
+    }
+
+
+
     // bitmap gorsel kucultme dersi
     fun kaydet(view: View) {
         val isim = binding.isimText.text.toString()
-        val malzeme = binding.MalzemeText.toString()
+        val malzeme = binding.MalzemeText.text.toString()
         // asagıdaki kod yuklenen gorselleri dusurmeyecek kadar normal boyutlara getiriyor.
         if(secilenBitmap!=null){
             val kucukBitmap = kucukBitMapOlustur(secilenBitmap!!,300)
@@ -100,14 +124,25 @@ class TarifFragment : Fragment() {
             kucukBitmap.compress(Bitmap.CompressFormat.PNG,50,outputStream)// cıktıyı nasıl alacagız onu belirliyor
             val byteDizisi = outputStream.toByteArray()
 
-            val tarif = Tarif(isim, malzeme, byteDizisi)
-            tarifDAO.insert(tarif)
-
             // data base kaydetmeye calısıcaz.
+            val tarif = Tarif(isim, malzeme, byteDizisi)
 
-
+            // Threading learn, RxJava ,kaydetme isleminin asıl yapildigi yer
+            mDisposable.add(
+                tarifDAO.insert(tarif)
+                .subscribeOn(Schedulers.io())
+                .observeOn(AndroidSchedulers.mainThread()) // thread nerde gosterecegimizi seciyoruz burda
+                .subscribe(this::handleResponseForInsert) // bunun sonucunda ne olacagını bir fonksiyona atayabiliyoruz.
+            )// islem bittginde handle response fonksiyonunu calıstıracak
 
         }
+
+    }
+    // cevabı ele al demek
+    private fun handleResponseForInsert(){
+        //bir onceki fragmenta don
+        val action = TarifFragmentDirections.actionTarifFragmentToListeFragment2()
+        Navigation.findNavController(requireView()).navigate(action)
 
     }
 
@@ -259,13 +294,14 @@ class TarifFragment : Fragment() {
         }
 
 
-        return Bitmap.createScaledBitmap(kullanicininSectigiBitmap,  100,  100, true)
+        return Bitmap.createScaledBitmap(kullanicininSectigiBitmap, widht, height, true)
     }
 
 
     override fun onDestroyView() {
         super.onDestroyView()
         _binding = null
+        mDisposable.clear()
     }
 
 }
